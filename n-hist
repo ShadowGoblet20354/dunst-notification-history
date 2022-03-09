@@ -4,29 +4,38 @@ import subprocess
 import json
 import time
 from datetime import datetime
+import argparse
 
-# define fixed size for notification summary (so they are all aligned)
+# Define fixed size for notification summary (so they are all aligned)
 SUMMARY_LEN = 16
 
-# get notification history from dunst
-history_stdout = subprocess.run(["dunstctl", "history"], stdout = subprocess.PIPE,
-                universal_newlines = True).stdout
-hst_json = json.loads(history_stdout)
+# Define command line arguments
+parser = argparse.ArgumentParser(description="Get notification history from dunst")
+parser.add_argument("-s", "--summary-size", help="Maximum size for notification summary to be displayed")
+parser.add_argument("-t", "--time-format", help="Use custom time format")
+parser.add_argument("-T", "--no-time", help="Don't show time of notification", action="store_true")
+args = parser.parse_args()
 
-# calculate monotonic time origin (what does 0 correspond to in UNIX time)
-based = time.time() - time.monotonic()
+# Return list of notifications
+def get_history():
+    # Get notification history from dunst
+    history_stdout = subprocess.run(["dunstctl", "history"], stdout = subprocess.PIPE,
+                    universal_newlines = True).stdout
+    hst_json = json.loads(history_stdout)
 
-# make sure notifications are chronologically sorted
-notif_list = sorted(hst_json['data'][0], key=lambda x: x['timestamp']['data'])
+    # Make sure notifications are chronologically sorted
+    return sorted(hst_json['data'][0], key=lambda x: x['timestamp']['data'])
 
-# extend or shorten string to have a given length
+
+# Extend or shorten string to have a given length
 def fixed_len(s, size):
     if len(s) > size:
         return s[:size]
     else:
         return s.ljust(size)
 
-for notif in notif_list:
+# Print notification to stdout
+def print_notif(notif, based):
     summary = fixed_len(notif['summary']['data'], SUMMARY_LEN)
 
     body = notif['body']['data'].replace("\n", "\n" + (9 + SUMMARY_LEN) * " ")
@@ -35,3 +44,14 @@ for notif in notif_list:
     ts_str = datetime.utcfromtimestamp(based + ts_mono).strftime("%H:%M")
 
     print("{} {} - {}".format(ts_str, summary, body))
+
+
+if __name__ == "__main__":
+    notif_list = get_history()
+
+    # Calculate monotonic time origin (what does monotonic 0 correspond to in UNIX time)
+    based = time.time() - time.monotonic()
+
+    for n in notif_list:
+        print_notif(n, based)
+
