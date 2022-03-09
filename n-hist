@@ -1,0 +1,27 @@
+#!/usr/bin/python
+
+import subprocess
+import json
+import time
+from datetime import datetime
+
+history_stdout = subprocess.run(["dunstctl", "history"], stdout = subprocess.PIPE,
+                universal_newlines = True).stdout
+hst_json = json.loads(history_stdout)
+
+
+based = time.time() - time.monotonic()
+
+notif_list = sorted(hst_json['data'][0], key=lambda x: x['timestamp']['data'])
+
+for notif in notif_list:
+    summary = notif['summary']['data']
+    if len(summary) > 16:
+        summary = summary[:16]
+
+    body = notif['body']['data'].replace("\n", "\n" + 25 * " ")
+
+    ts_mono = notif['timestamp']['data'] / 1000000
+    ts_str = datetime.utcfromtimestamp(based + ts_mono).strftime("%H:%M")
+
+    print("{} {:16} - {}".format(ts_str, summary, body))
