@@ -5,23 +5,33 @@ import json
 import time
 from datetime import datetime
 
+# define fixed size for notification summary (so they are all aligned)
+SUMMARY_LEN = 16
+
+# get notification history from dunst
 history_stdout = subprocess.run(["dunstctl", "history"], stdout = subprocess.PIPE,
                 universal_newlines = True).stdout
 hst_json = json.loads(history_stdout)
 
-
+# calculate monotonic time origin (what does 0 correspond to in UNIX time)
 based = time.time() - time.monotonic()
 
+# make sure notifications are chronologically sorted
 notif_list = sorted(hst_json['data'][0], key=lambda x: x['timestamp']['data'])
 
-for notif in notif_list:
-    summary = notif['summary']['data']
-    if len(summary) > 16:
-        summary = summary[:16]
+# extend or shorten string to have a given length
+def fixed_len(s, size):
+    if len(s) > size:
+        return s[:size]
+    else:
+        return s.ljust(size)
 
-    body = notif['body']['data'].replace("\n", "\n" + 25 * " ")
+for notif in notif_list:
+    summary = fixed_len(notif['summary']['data'], SUMMARY_LEN)
+
+    body = notif['body']['data'].replace("\n", "\n" + (9 + SUMMARY_LEN) * " ")
 
     ts_mono = notif['timestamp']['data'] / 1000000
     ts_str = datetime.utcfromtimestamp(based + ts_mono).strftime("%H:%M")
 
-    print("{} {:16} - {}".format(ts_str, summary, body))
+    print("{} {} - {}".format(ts_str, summary, body))
