@@ -11,6 +11,7 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser(description="Get notification history from dunst")
     parser.add_argument("-s", "--summary-size", help="Maximum size for notification summary to be displayed", type=int, default=16)
+    parser.add_argument("-f", "--from", help="Show only results from given sender (summary contains given string)", type=str, dest="sender")
     parser.add_argument("-t", "--time-format", help="Use custom time format", type=str, default="%H:%M")
     parser.add_argument("-T", "--no-time", help="Don't show time of notification", action="store_true")
     return parser.parse_args()
@@ -64,5 +65,7 @@ if __name__ == "__main__":
 
     # Prints every notification in list
     for n in notif_list:
+        if not args.sender is None and not args.sender in n['summary']['data']:
+            continue
         print_notif(n, based, args.summary_size, t_format)
 
