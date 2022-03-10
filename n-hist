@@ -6,15 +6,14 @@ import time
 from datetime import datetime
 import argparse
 
-# Define fixed size for notification summary (so they are all aligned)
-SUMMARY_LEN = 16
 
 # Define command line arguments
-parser = argparse.ArgumentParser(description="Get notification history from dunst")
-parser.add_argument("-s", "--summary-size", help="Maximum size for notification summary to be displayed")
-parser.add_argument("-t", "--time-format", help="Use custom time format")
-parser.add_argument("-T", "--no-time", help="Don't show time of notification", action="store_true")
-args = parser.parse_args()
+def get_args():
+    parser = argparse.ArgumentParser(description="Get notification history from dunst")
+    parser.add_argument("-s", "--summary-size", help="Maximum size for notification summary to be displayed", type=int, default=16)
+    parser.add_argument("-t", "--time-format", help="Use custom time format", type=str, default="%H:%M")
+    parser.add_argument("-T", "--no-time", help="Don't show time of notification", action="store_true")
+    return parser.parse_args()
 
 # Return list of notifications
 def get_history():
@@ -34,24 +33,36 @@ def fixed_len(s, size):
     else:
         return s.ljust(size)
 
+
 # Print notification to stdout
-def print_notif(notif, based):
-    summary = fixed_len(notif['summary']['data'], SUMMARY_LEN)
+def print_notif(notif, based, summary_size, time_format):
+    summary = fixed_len(notif['summary']['data'], summary_size)
 
-    body = notif['body']['data'].replace("\n", "\n" + (9 + SUMMARY_LEN) * " ")
+    if time_format != "":
+        ts_mono = notif['timestamp']['data'] / 1000000
+        ts_str = datetime.utcfromtimestamp(based + ts_mono).strftime(time_format)
+        body = notif['body']['data'].replace("\n", "\n" + (len(ts_str) + summary_size) * " ")
+        print("{} {} - {}".format(ts_str, summary, body))
 
-    ts_mono = notif['timestamp']['data'] / 1000000
-    ts_str = datetime.utcfromtimestamp(based + ts_mono).strftime("%H:%M")
-
-    print("{} {} - {}".format(ts_str, summary, body))
+    else:
+        body = notif['body']['data'].replace("\n", "\n" + (summary_size) * " ")
+        print("{} - {}".format(summary, body))
 
 
 if __name__ == "__main__":
+    args = get_args()
     notif_list = get_history()
 
     # Calculate monotonic time origin (what does monotonic 0 correspond to in UNIX time)
     based = time.time() - time.monotonic()
 
+    # Generate final time format
+    if args.no_time:
+        t_format = ""
+    else:
+        t_format = args.time_format
+
+    # Prints every notification in list
     for n in notif_list:
-        print_notif(n, based)
+        print_notif(n, based, args.summary_size, t_format)
 
