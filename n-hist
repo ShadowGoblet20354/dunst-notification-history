@@ -5,6 +5,8 @@ import json
 import time
 from datetime import datetime
 import argparse
+import os
+import re
 
 
 # Define command line arguments
@@ -35,14 +37,35 @@ def fixed_len(s, size):
         return s.ljust(size)
 
 
+# Format string so that it is align to pad size and doesnt wrap around screen
+def align(data, pad, window_size):
+    ret = ""
+    fmt = "(.{%d})" % (window_size - pad)
+
+    for line in data.split("\n"):
+        ret += re.sub(fmt, "\\1\n", line)
+
+    return ret.replace("\n", "\n" + pad * " ")
+
+
 # Print notification to stdout
-def print_notif(notif, based, summary_size, time_format):
+def print_notif(notif, based, summary_size, time_format, window_size):
     summary = fixed_len(notif['summary']['data'], summary_size)
+
+    if "This site has been updated in the background." in notif['body']['data']:
+        return
+    if notif['body']['data'].startswith('<a href'):
+        notif['body']['data'] = notif['body']['data'][58:]
 
     if time_format != "":
         ts_mono = notif['timestamp']['data'] / 1000000
         ts_str = datetime.utcfromtimestamp(based + ts_mono).strftime(time_format)
-        body = notif['body']['data'].replace("\n", "\n" + (len(ts_str) + summary_size) * " ")
+
+        # Calculate number of spaces needed to align to new line
+        pad = len(ts_str) + summary_size + 4
+
+        # body = notif['body']['data'].replace("\n", "\n" + pad * " ")
+        body = align(notif['body']['data'], pad, window_size)
         print("{} {} - {}".format(ts_str, summary, body))
 
     else:
@@ -63,9 +86,12 @@ if __name__ == "__main__":
     else:
         t_format = args.time_format
 
-    # Prints every notification in list
+    # Get terminal window size
+    window_size = os.get_terminal_size().columns
+
+    # Prints every notification in list (tho possibly filtered)
     for n in notif_list:
         if not args.sender is None and not args.sender in n['summary']['data']:
             continue
-        print_notif(n, based, args.summary_size, t_format)
+        print_notif(n, based, args.summary_size, t_format, window_size)
 
