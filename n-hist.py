@@ -44,8 +44,9 @@ def align(data, pad, window_size):
 
     for line in data.split("\n"):
         ret += re.sub(fmt, "\\1\n", line)
+        ret += "\n"
 
-    return ret.replace("\n", "\n" + pad * " ")
+    return ret[:-1].replace("\n", "\n" + pad * " ")
 
 
 # Print notification to stdout
